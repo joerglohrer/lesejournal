@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lesejournal Web-App</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 15px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .filter-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .filter-bar select, .filter-bar input {
+            padding: 8px;
+            font-size: 1em;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .task {
+            border-bottom: 1px solid #e0e0e0;
+            padding: 10px 0;
+        }
+        .task:last-child {
+            border-bottom: none;
+        }
+        .task h3 {
+            margin: 0;
+            font-size: 1.2em;
+        }
+        .task p {
+            margin: 5px 0;
+            font-size: 0.9em;
+        }
+        .stars {
+            color: #f39c12;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="filter-bar">
+            <select id="taskFilter" onchange="filterTasks()">
+                <option value="all">Alle Aufgaben</option>
+                <option value="während_dem_lesen">Während dem Lesen</option>
+                <option value="nach_dem_lesen">Nach dem Lesen</option>
+            </select>
+            <select id="starsFilter" onchange="filterTasks()">
+                <option value="all">Alle Sterne</option>
+                <option value="1">1 Stern</option>
+                <option value="2">2 Sterne</option>
+                <option value="3">3 Sterne</option>
+                <option value="4">4 Sterne</option>
+                <option value="5">5 Sterne</option>
+            </select>
+            <input type="text" id="searchInput" placeholder="Suche..." onkeyup="filterTasks()">
+        </div>
+        <div id="taskList">
+            <!-- Tasks will be dynamically populated here -->
+        </div>
+    </div>
+
+    <script>
+        let tasks = [];
+
+        fetch('https://git.rpi-virtuell.de/Comenius-Institut/KI-religionsbezogen/raw/branch/main/lesejournal.json')
+            .then(response => response.json())
+            .then(data => {
+                tasks = [...data.journal_entries.während_dem_lesen, ...data.journal_entries.nach_dem_lesen];
+                filterTasks();
+            })
+            .catch(error => console.error('Error fetching tasks:', error));
+
+        function filterTasks() {
+            const filter = document.getElementById("taskFilter").value;
+            const starsFilter = document.getElementById("starsFilter").value;
+            const searchQuery = document.getElementById("searchInput").value.toLowerCase();
+            const taskList = document.getElementById("taskList");
+
+            taskList.innerHTML = "";
+            let filteredTasks = tasks;
+
+            if (filter !== "all") {
+                filteredTasks = filteredTasks.filter(task => task.categories.includes(filter));
+            }
+
+            if (starsFilter !== "all") {
+                filteredTasks = filteredTasks.filter(task => {
+                    const starCount = (task.stars.match(/★/g) || []).length;
+                    return starCount === parseInt(starsFilter);
+                });
+            }
+
+            filteredTasks = filteredTasks.filter(task =>
+                task.task.toLowerCase().includes(searchQuery) ||
+                task.description.toLowerCase().includes(searchQuery)
+            );
+
+            filteredTasks.forEach(task => {
+                const taskElement = document.createElement("div");
+                taskElement.classList.add("task");
+                taskElement.innerHTML = `
+                    <h3>${task.task}</h3>
+                    <p>${task.description}</p>
+                    <div class="stars">${task.stars}</div>
+                `;
+                taskList.appendChild(taskElement);
+            });
+        }
+
+        document.addEventListener("DOMContentLoaded", filterTasks);
+    </script>
+</body>
+</html>
