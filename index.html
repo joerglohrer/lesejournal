@@ -22,8 +22,8 @@
         }
         .filter-bar {
             display: flex;
-            justify-content: space-between;
-            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
             margin-bottom: 15px;
         }
         .filter-bar select, .filter-bar input {
@@ -31,6 +31,7 @@
             font-size: 1em;
             border: 1px solid #ccc;
             border-radius: 5px;
+            flex: 1;
         }
         .task {
             border-bottom: 1px solid #e0e0e0;
@@ -77,14 +78,35 @@
 
     <script>
         let tasks = [];
+        let währendDemLesenTasks = [];
+        let nachDemLesenTasks = [];
 
-        fetch('https://git.rpi-virtuell.de/Comenius-Institut/KI-religionsbezogen/raw/branch/main/lesejournal.json')
-            .then(response => response.json())
-            .then(data => {
-                tasks = [...data.journal_entries.während_dem_lesen, ...data.journal_entries.nach_dem_lesen];
+        async function fetchTasks() {
+            try {
+                const response = await fetch('https://cors-anywhere.herokuapp.com/https://git.rpi-virtuell.de/Comenius-Institut/KI-religionsbezogen/raw/branch/main/lesejournal.json');
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                const data = await response.json();
+                währendDemLesenTasks = data.journal_entries.während_dem_lesen.map(task => ({
+                    ...task,
+                    category: 'während_dem_lesen'
+                }));
+                nachDemLesenTasks = data.journal_entries.nach_dem_lesen.map(task => ({
+                    ...task,
+                    category: 'nach_dem_lesen'
+                }));
+                tasks = [...währendDemLesenTasks, ...nachDemLesenTasks].map(task => ({
+                    ...task,
+                    starsCount: task.stars.split('★').length - 1,
+                    stars: "★".repeat(task.stars.split('★').length - 1) + "☆".repeat(5 - (task.stars.split('★').length - 1))
+                }));
                 filterTasks();
-            })
-            .catch(error => console.error('Error fetching tasks:', error));
+            } catch (error) {
+                console.error('Error fetching tasks:', error);
+                document.getElementById("taskList").innerHTML = `<p>Fehler beim Laden der Aufgaben. Bitte versuche es später erneut.</p>`;
+            }
+        }
 
         function filterTasks() {
             const filter = document.getElementById("taskFilter").value;
@@ -96,20 +118,22 @@
             let filteredTasks = tasks;
 
             if (filter !== "all") {
-                filteredTasks = filteredTasks.filter(task => task.categories.includes(filter));
+                filteredTasks = filteredTasks.filter(task => task.category === filter);
             }
 
             if (starsFilter !== "all") {
-                filteredTasks = filteredTasks.filter(task => {
-                    const starCount = (task.stars.match(/★/g) || []).length;
-                    return starCount === parseInt(starsFilter);
-                });
+                filteredTasks = filteredTasks.filter(task => task.starsCount === parseInt(starsFilter));
             }
 
             filteredTasks = filteredTasks.filter(task =>
                 task.task.toLowerCase().includes(searchQuery) ||
                 task.description.toLowerCase().includes(searchQuery)
             );
+
+            if (filteredTasks.length === 0) {
+                taskList.innerHTML = `<p>Keine Aufgaben gefunden.</p>`;
+                return;
+            }
 
             filteredTasks.forEach(task => {
                 const taskElement = document.createElement("div");
@@ -123,7 +147,7 @@
             });
         }
 
-        document.addEventListener("DOMContentLoaded", filterTasks);
+        document.addEventListener("DOMContentLoaded", fetchTasks);
     </script>
 </body>
 </html>
